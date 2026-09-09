@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>考公类比推理 · 记忆训练器 V4</title>
+<style>
+:root{
+  --bg:#f5f7fb; --card:#fff; --text:#182033; --muted:#6c7485; --line:#e5e9f0;
+  --primary:#315efb; --primary-soft:#edf2ff; --good:#14804a; --good-soft:#e9f8f0;
+  --bad:#c2413b; --bad-soft:#fff0ef; --orange:#b45309; --orange-soft:#fff7e8;
+  --shadow:0 18px 55px rgba(27,39,66,.10);
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:linear-gradient(180deg,#fbfcff 0%,var(--bg) 100%);
+}
+.app{max-width:1120px;margin:auto;padding:26px 18px 48px}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.brand h1{margin:0 0 5px;font-size:25px;font-weight:850}
+.brand p{margin:0;color:var(--muted);font-size:13px}
+.actions{display:flex;gap:8px;flex-wrap:wrap}
+button,select,input{font:inherit}
+button{border:0;border-radius:11px;padding:10px 14px;cursor:pointer;transition:.15s ease}
+button:hover{transform:translateY(-1px)}
+button:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-ghost{background:#fff;border:1px solid var(--line);color:var(--text)}
+.btn-good{background:var(--good-soft);color:var(--good);font-weight:750}
+.btn-bad{background:var(--bad-soft);color:var(--bad);font-weight:750}
+.btn-orange{background:var(--orange-soft);color:var(--orange);font-weight:750}
+.stats{display:grid;grid-template-columns:repeat(6,1fr);gap:9px;margin-bottom:14px}
+.stat{background:#fff;border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.stat .n{font-size:21px;font-weight:850;white-space:nowrap}
+.stat .l{font-size:11px;color:var(--muted);margin-top:3px}
+.setup{
+  background:#fff;border:1px solid var(--line);border-radius:18px;padding:14px;
+  margin-bottom:14px;box-shadow:0 6px 22px rgba(30,44,72,.04)
+}
+.setup-title{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}
+.setup-title strong{font-size:15px}
+.best{font-size:12px;color:var(--muted)}
+.filters{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:8px}
+.field label{display:block;font-size:11px;color:var(--muted);margin:0 0 5px 3px}
+select,input{
+  width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:10px;
+  background:#fff;color:var(--text);outline:none
+}
+select:focus,input:focus{border-color:#9cafef;box-shadow:0 0 0 3px var(--primary-soft)}
+.challenge-row{
+  display:grid;grid-template-columns:1.15fr 1fr 1fr auto;gap:8px;align-items:end;margin-top:9px;
+  padding-top:9px;border-top:1px dashed var(--line)
+}
+.challenge-help{font-size:12px;color:var(--muted);align-self:center}
+.mode-chip{
+  display:inline-flex;align-items:center;gap:6px;background:var(--primary-soft);color:var(--primary);
+  padding:7px 10px;border-radius:999px;font-size:12px;font-weight:750
+}
+.progress-wrap{height:8px;background:#e9edf5;border-radius:999px;overflow:hidden;margin-bottom:15px}
+.progress{height:100%;width:0;background:var(--primary);transition:.25s ease}
+.stage{perspective:1200px}
+.flashcard{
+  position:relative;min-height:365px;transform-style:preserve-3d;
+  transition:transform .52s cubic-bezier(.2,.7,.2,1);cursor:pointer
+}
+.flashcard.flipped{transform:rotateY(180deg)}
+.face{
+  position:absolute;inset:0;backface-visibility:hidden;background:#fff;border:1px solid var(--line);
+  border-radius:24px;box-shadow:var(--shadow);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;padding:40px 32px;overflow:auto
+}
+.back{transform:rotateY(180deg)}
+.badge{
+  position:absolute;top:18px;left:20px;background:var(--primary-soft);color:var(--primary);
+  border-radius:999px;padding:6px 10px;font-size:12px;font-weight:750
+}
+.dir-badge{
+  position:absolute;top:18px;left:50%;transform:translateX(-50%);
+  color:var(--muted);font-size:12px;background:#f7f8fb;border:1px solid var(--line);
+  border-radius:999px;padding:5px 10px
+}
+.index{position:absolute;top:20px;right:22px;color:var(--muted);font-size:12px}
+.front-word{font-size:clamp(30px,5vw,52px);font-weight:900;letter-spacing:2px;text-align:center;line-height:1.35;max-width:920px}
+.back-word{font-size:clamp(20px,3vw,35px);font-weight:800;text-align:center;line-height:1.55;max-width:920px}
+.hint{margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+.relation{margin-top:18px;padding:8px 12px;background:#f7f9fc;border-radius:10px;color:#4b5563;font-size:13px}
+.controls{display:grid;grid-template-columns:1fr 1.25fr 1fr;gap:9px;margin-top:14px}
+.controls button{min-height:52px;font-size:15px}
+.keyboard{text-align:center;color:var(--muted);font-size:12px;margin-top:10px}
+.streak-banner{
+  display:none;margin-top:12px;padding:11px 14px;border-radius:13px;background:var(--orange-soft);
+  color:var(--orange);text-align:center;font-weight:750
+}
+.streak-banner.show{display:block}
+.panel{margin-top:20px;background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px}
+.panel h2{font-size:16px;margin:0}.small{font-size:12px;color:var(--muted)}
+.form-grid{display:grid;grid-template-columns:1fr 1.45fr .9fr .9fr auto;gap:8px}
+.list{margin-top:10px;display:grid;gap:7px;max-height:280px;overflow:auto}
+.row{display:grid;grid-template-columns:1fr 1.7fr .8fr .8fr auto;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:12px}
+.row .ans{color:#4b5563}.row .cat,.row .rel{color:var(--primary)}
+.delete{background:transparent;color:#9aa2b1;padding:6px 8px}
+.footer-note{margin-top:15px;text-align:center;font-size:12px;color:var(--muted)}
+.modal-bg{
+  display:none;position:fixed;inset:0;background:rgba(22,29,43,.44);z-index:99;
+  align-items:center;justify-content:center;padding:20px
+}
+.modal-bg.show{display:flex}
+.modal{width:min(460px,100%);background:#fff;border-radius:22px;padding:24px;box-shadow:0 30px 90px rgba(0,0,0,.2)}
+.modal h2{margin:0 0 6px}.modal p{color:var(--muted);margin:0 0 16px}
+.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:16px}
+.result{background:#f7f9fc;border-radius:12px;padding:12px}.result b{display:block;font-size:23px}.result span{font-size:11px;color:var(--muted)}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end}
+@media(max-width:850px){
+  .stats{grid-template-columns:repeat(3,1fr)}
+  .filters{grid-template-columns:repeat(2,1fr)}
+  .challenge-row{grid-template-columns:1fr 1fr}
+  .challenge-help{grid-column:1/-1}
+}
+@media(max-width:620px){
+  .topbar{align-items:flex-start;flex-direction:column}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .filters,.challenge-row,.form-grid,.row{grid-template-columns:1fr}
+  .flashcard{min-height:335px}
+  .controls{grid-template-columns:1fr 1fr}
+  .flip-btn{grid-column:1/-1;order:-1}
+  .dir-badge{top:52px}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="brand">
+      <h1>考公类比推理 · 记忆训练器 V4</h1>
+      <p>434 张题库 · 双向记忆 · 关系专项 · 计时挑战 · 连胜闯关</p>
+    </div>
+    <div class="actions">
+      <button class="btn-ghost" id="shuffleBtn">随机顺序</button>
+      <button class="btn-ghost" id="resetBtn">重置本轮</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="n" id="totalNum">0</div><div class="l">当前题量</div></div>
+    <div class="stat"><div class="n" id="doneNum">0</div><div class="l">本轮已答</div></div>
+    <div class="stat"><div class="n" id="knownNum">0</div><div class="l">记住了</div></div>
+    <div class="stat"><div class="n" id="weakNum">0</div><div class="l">还不熟</div></div>
+    <div class="stat"><div class="n" id="streakNum">0</div><div class="l">当前连胜</div></div>
+    <div class="stat"><div class="n" id="challengeNum">—</div><div class="l" id="challengeLabel">闯关状态</div></div>
+  </div>
+
+  <div class="setup">
+    <div class="setup-title">
+      <strong>训练设置</strong>
+      <span class="best" id="bestText">最佳连胜 0 · 计时最高 0</span>
+    </div>
+
+    <div class="filters">
+      <div class="field">
+        <label>知识分类</label>
+        <select id="categoryFilter"><option value="全部">全部分类</option></select>
+      </div>
+      <div class="field">
+        <label>关系专项训练</label>
+        <select id="relationFilter"><option value="全部">全部关系</option></select>
+      </div>
+      <div class="field">
+        <label>题库范围</label>
+        <select id="scopeSelect">
+          <option value="all">全部卡片</option>
+          <option value="weak">只刷错题</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>正反双向刷题</label>
+        <select id="directionSelect">
+          <option value="forward">正向：词条 → 含义</option>
+          <option value="reverse">反向：含义 → 词条</option>
+          <option value="mixed">随机双向</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="challenge-row">
+      <div class="field">
+        <label>训练模式</label>
+        <select id="gameMode">
+          <option value="free">自由复习</option>
+          <option value="timed">计时闯关</option>
+          <option value="streak">连胜闯关</option>
+        </select>
+      </div>
+      <div class="field" id="timeField">
+        <label>计时时长</label>
+        <select id="timeSelect">
+          <option value="60">60 秒</option>
+          <option value="90">90 秒</option>
+          <option value="180">180 秒</option>
+        </select>
+      </div>
+      <div class="field" id="streakField">
+        <label>连胜目标</label>
+        <select id="streakTarget">
+          <option value="10">10 连胜</option>
+          <option value="20">20 连胜</option>
+          <option value="30">30 连胜</option>
+        </select>
+      </div>
+      <button class="btn-orange" id="startBtn">开始闯关</button>
+      <div class="challenge-help" id="challengeHelp">自由复习无需开始；切换到闯关模式后点击“开始闯关”。</div>
+    </div>
+  </div>
+
+  <div class="progress-wrap"><div class="progress" id="progress"></div></div>
+
+  <div class="stage">
+    <div class="flashcard" id="flashcard">
+      <div class="face front">
+        <div class="badge" id="frontCategory">常识</div>
+        <div class="dir-badge" id="frontDirection">正向</div>
+        <div class="index" id="frontIndex">1 / 1</div>
+        <div class="front-word" id="frontText">三教</div>
+        <div class="hint" id="frontHint">先在脑中回忆答案，再点击翻面</div>
+      </div>
+      <div class="face back">
+        <div class="badge" id="backCategory">常识</div>
+        <div class="dir-badge" id="backDirection">答案</div>
+        <div class="index" id="backIndex">1 / 1</div>
+        <div class="back-word" id="backText">道教、佛教、儒教</div>
+        <div class="relation" id="relationText">关系：组成关系</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn-bad" id="weakBtn">✕ 还不熟</button>
+    <button class="btn-primary flip-btn" id="flipBtn">翻面看答案</button>
+    <button class="btn-good" id="knownBtn">✓ 记住了</button>
+  </div>
+  <div class="keyboard">快捷键：空格翻面　← 还不熟　→ 记住了</div>
+  <div class="streak-banner" id="streakBanner"></div>
+
+  <div class="panel">
+    <div class="panel-head">
+      <h2>添加自己的记忆卡</h2>
+      <span class="small">自定义内容也会参与双向、专项与闯关训练</span>
+    </div>
+    <div class="form-grid">
+      <input id="qInput" placeholder="正面，例如：三教">
+      <input id="aInput" placeholder="背面，例如：道教、佛教、儒教">
+      <input id="cInput" placeholder="分类，例如：传统文化">
+      <input id="rInput" placeholder="关系，例如：组成关系">
+      <button class="btn-primary" id="addBtn">添加</button>
+    </div>
+    <div class="list" id="cardList"></div>
+  </div>
+
+  <div class="footer-note">提示：反向模式适合“看到成员想起集合名”；关系专项可单独刷组成、全同、矛盾、反对、交叉、因果、对应等题型。</div>
+</div>
+
+<div class="modal-bg" id="resultModal">
+  <div class="modal">
+    <h2 id="resultTitle">闯关完成</h2>
+    <p id="resultSubtitle">本轮成绩</p>
+    <div class="result-grid">
+      <div class="result"><b id="resultCorrect">0</b><span>记住了</span></div>
+      <div class="result"><b id="resultWrong">0</b><span>还不熟</span></div>
+      <div class="result"><b id="resultMaxStreak">0</b><span>最高连胜</span></div>
+      <div class="result"><b id="resultAccuracy">0%</b><span>正确率</span></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-ghost" id="closeModalBtn">关闭</button>
+      <button class="btn-primary" id="againBtn">再来一局</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BUILTIN_CARDS = [{"q":"三教","a":"道教、佛教、儒教","cat":"三数系列","relation":"组成关系","id":"builtin-001"},{"q":"三山","a":"黄山（安徽）、庐山（江西）、雁荡山（浙江）","cat":"三数系列","relation":"组成关系","id":"builtin-002"},{"q":"三基色","a":"红、绿、蓝（光学三原色）","cat":"三数系列","relation":"组成关系","id":"builtin-003"},{"q":"三纲","a":"君为臣纲、父为子纲、夫为妻纲","cat":"三数系列","relation":"组成关系","id":"builtin-004"},{"q":"四海","a":"渤海、黄海、东海、南海","cat":"四数系列","relation":"组成关系","id":"builtin-005"},{"q":"四书","a":"《大学》《中庸》《论语》《孟子》","cat":"四数系列","relation":"组成关系","id":"builtin-006"},{"q":"四大名著","a":"《三国演义》《水浒传》《西游记》《红楼梦》","cat":"四数系列","relation":"组成关系","id":"builtin-007"},{"q":"四大名花","a":"牡丹、水仙、菊花、山茶（常见说法）","cat":"四数系列","relation":"组成关系","id":"builtin-008"},{"q":"四大名绣","a":"苏绣、湘绣、蜀绣、粤绣","cat":"四数系列","relation":"组成关系","id":"builtin-009"},{"q":"四大名扇","a":"檀香扇、火画扇、竹丝扇、绫绢扇","cat":"四数系列","relation":"组成关系","id":"builtin-010"},{"q":"四大发明","a":"造纸术、火药、印刷术、指南针","cat":"四数系列","relation":"组成关系","id":"builtin-011"},{"q":"五行","a":"金、木、水、火、土","cat":"五数系列","relation":"组成关系","id":"builtin-012"},{"q":"五金","a":"金、银、铜、铁、锡（传统说法）","cat":"五数系列","relation":"组成关系","id":"builtin-013"},{"q":"五音","a":"宫、商、角、徵、羽","cat":"五数系列","relation":"组成关系","id":"builtin-014"},{"q":"五色","a":"青、黄、赤、白、黑","cat":"五数系列","relation":"组成关系","id":"builtin-015"},{"q":"五脏","a":"心、肝、脾、肺、肾","cat":"五数系列","relation":"组成关系","id":"builtin-016"},{"q":"五官","a":"眉、眼、口、耳、鼻（传统称谓）","cat":"五数系列","relation":"组成关系","id":"builtin-017"},{"q":"五谷","a":"稻、黍、稷、麦、菽（常见说法）","cat":"五数系列","relation":"组成关系","id":"builtin-018"},{"q":"五伦","a":"君臣、父子、兄弟、夫妇、朋友","cat":"五数系列","relation":"组成关系","id":"builtin-019"},{"q":"五常","a":"仁、义、礼、智、信","cat":"五数系列","relation":"组成关系","id":"builtin-020"},{"q":"五经","a":"《诗经》《尚书》《礼记》《周易》《春秋》","cat":"五数系列","relation":"组成关系","id":"builtin-021"},{"q":"五湖","a":"洞庭湖、鄱阳湖、太湖、洪泽湖、巢湖","cat":"五数系列","relation":"组成关系","id":"builtin-022"},{"q":"五岭","a":"越城岭、都庞岭、萌渚岭、骑田岭、大庾岭","cat":"五数系列","relation":"组成关系","id":"builtin-023"},{"q":"五岳","a":"东岳泰山、西岳华山、南岳衡山、北岳恒山、中岳嵩山","cat":"五数系列","relation":"组成关系","id":"builtin-024"},{"q":"六艺","a":"礼、乐、射、御、书、数","cat":"六数系列","relation":"组成关系","id":"builtin-025"},{"q":"六义","a":"风、雅、颂、赋、比、兴（《诗经》六义）","cat":"六数系列","relation":"组成关系","id":"builtin-026"},{"q":"汉字六书","a":"象形、指事、会意、形声、转注、假借","cat":"六数系列","relation":"组成关系","id":"builtin-027"},{"q":"六欲","a":"见欲、听欲、香欲、味欲、触欲、意欲","cat":"六数系列","relation":"组成关系","id":"builtin-028"},{"q":"七情","a":"喜、怒、忧、思、悲、恐、惊（中医七情）","cat":"七数系列","relation":"组成关系","id":"builtin-029"},{"q":"八卦","a":"乾、坤、震、巽、坎、离、艮、兑","cat":"八数系列","relation":"组成关系","id":"builtin-030"},{"q":"九流","a":"儒家、道家、阴阳家、法家、名家、墨家、纵横家、杂家、农家","cat":"九数系列","relation":"组成关系","id":"builtin-031"},{"q":"十恶","a":"谋反、谋大逆、谋叛、恶逆、不道、大不敬、不孝、不睦、不义、内乱","cat":"十数系列","relation":"组成关系","id":"builtin-032"},{"q":"十大名茶","a":"西湖龙井、洞庭碧螺春、信阳毛尖、君山银针、六安瓜片、黄山毛峰、祁门红茶、都匀毛尖、安溪铁观音、武夷岩茶（常见版本）","cat":"十数系列","relation":"组成关系","id":"builtin-033"},{"q":"十天干","a":"甲、乙、丙、丁、戊、己、庚、辛、壬、癸","cat":"十数系列","relation":"组成关系","id":"builtin-034"},{"q":"十二时辰","a":"子、丑、寅、卯、辰、巳、午、未、申、酉、戌、亥","cat":"十二数系列","relation":"组成关系","id":"builtin-035"},{"q":"十二生肖","a":"鼠、牛、虎、兔、龙、蛇、马、羊、猴、鸡、狗、猪","cat":"十二数系列","relation":"组成关系","id":"builtin-036"},{"q":"二十四节气","a":"立春、雨水、惊蛰、春分、清明、谷雨；立夏、小满、芒种、夏至、小暑、大暑；立秋、处暑、白露、秋分、寒露、霜降；立冬、小雪、大雪、冬至、小寒、大寒","cat":"二十四数系列","relation":"组成关系","id":"builtin-037"},{"q":"前20号元素","a":"氢、氦、锂、铍、硼、碳、氮、氧、氟、氖、钠、镁、铝、硅、磷、硫、氯、氩、钾、钙","cat":"其他数列","relation":"组成关系","id":"builtin-038"},{"q":"青衫","a":"古代读书人常穿青色衣衫；常代指读书人，也可指低级官吏","cat":"人物代称","relation":"比喻象征","id":"builtin-039"},{"q":"伉俪","a":"夫妻","cat":"人物代称","relation":"比喻象征","id":"builtin-040"},{"q":"同窗","a":"同学","cat":"人物代称","relation":"比喻象征","id":"builtin-041"},{"q":"袍泽","a":"战友","cat":"人物代称","relation":"比喻象征","id":"builtin-042"},{"q":"南冠","a":"囚犯、俘虏","cat":"人物代称","relation":"比喻象征","id":"builtin-043"},{"q":"白丁／布衣","a":"平民、百姓","cat":"人物代称","relation":"比喻象征","id":"builtin-044"},{"q":"须眉","a":"男子","cat":"人物代称","relation":"比喻象征","id":"builtin-045"},{"q":"巾帼／红颜／娥眉","a":"女性","cat":"人物代称","relation":"比喻象征","id":"builtin-046"},{"q":"三曹","a":"曹操、曹丕、曹植","cat":"文学集合","relation":"组成关系","id":"builtin-047"},{"q":"三苏","a":"苏洵、苏轼、苏辙","cat":"文学集合","relation":"组成关系","id":"builtin-048"},{"q":"杜甫“三吏”","a":"《新安吏》《石壕吏》《潼关吏》","cat":"文学集合","relation":"组成关系","id":"builtin-049"},{"q":"杜甫“三别”","a":"《新婚别》《垂老别》《无家别》","cat":"文学集合","relation":"组成关系","id":"builtin-050"},{"q":"三省","a":"中书省、门下省、尚书省","cat":"制度集合","relation":"组成关系","id":"builtin-051"},{"q":"三大平原","a":"东北平原、华北平原、长江中下游平原","cat":"地理集合","relation":"组成关系","id":"builtin-052"},{"q":"中国三大半岛","a":"辽东半岛、山东半岛、雷州半岛","cat":"地理集合","relation":"组成关系","id":"builtin-053"},{"q":"岁寒三友","a":"松、竹、梅","cat":"传统文化","relation":"组成关系","id":"builtin-054"},{"q":"花中四君子","a":"梅、兰、竹、菊","cat":"传统文化","relation":"组成关系","id":"builtin-055"},{"q":"文房四宝","a":"笔、墨、纸、砚","cat":"传统文化","relation":"组成关系","id":"builtin-056"},{"q":"四象","a":"青龙、白虎、朱雀、玄武","cat":"传统文化","relation":"组成关系","id":"builtin-057"},{"q":"四大佛教名山","a":"五台山、峨眉山、九华山、普陀山","cat":"地理集合","relation":"组成关系","id":"builtin-058"},{"q":"四大道教名山","a":"武当山、龙虎山、齐云山、青城山（常见说法）","cat":"地理集合","relation":"组成关系","id":"builtin-059"},{"q":"四大石窟","a":"敦煌莫高窟、云冈石窟、龙门石窟、麦积山石窟","cat":"地理集合","relation":"组成关系","id":"builtin-060"},{"q":"传统四大古都","a":"西安、南京、洛阳、北京","cat":"地理集合","relation":"组成关系","id":"builtin-061"},{"q":"四大高原","a":"青藏高原、内蒙古高原、黄土高原、云贵高原","cat":"地理集合","relation":"组成关系","id":"builtin-062"},{"q":"四大盆地","a":"塔里木盆地、准噶尔盆地、柴达木盆地、四川盆地","cat":"地理集合","relation":"组成关系","id":"builtin-063"},{"q":"四大牧区","a":"内蒙古牧区、新疆牧区、青海牧区、西藏牧区","cat":"地理集合","relation":"组成关系","id":"builtin-064"},{"q":"四大民间传说","a":"《牛郎织女》《孟姜女哭长城》《梁山伯与祝英台》《白蛇传》","cat":"文学集合","relation":"组成关系","id":"builtin-065"},{"q":"元曲四大家","a":"关汉卿、白朴、马致远、郑光祖","cat":"文学集合","relation":"组成关系","id":"builtin-066"},{"q":"晚清四大谴责小说","a":"《官场现形记》《二十年目睹之怪现状》《老残游记》《孽海花》","cat":"文学集合","relation":"组成关系","id":"builtin-067"},{"q":"五味","a":"酸、苦、甘、辛、咸","cat":"五数系列","relation":"组成关系","id":"builtin-068"},{"q":"五方","a":"东、南、西、北、中","cat":"五数系列","relation":"组成关系","id":"builtin-069"},{"q":"五代","a":"后梁、后唐、后晋、后汉、后周","cat":"历史集合","relation":"组成关系","id":"builtin-070"},{"q":"五胡","a":"匈奴、鲜卑、羯、氐、羌","cat":"历史集合","relation":"组成关系","id":"builtin-071"},{"q":"六部","a":"吏部、户部、礼部、兵部、刑部、工部","cat":"制度集合","relation":"组成关系","id":"builtin-072"},{"q":"六朝","a":"吴、东晋、宋、齐、梁、陈","cat":"历史集合","relation":"组成关系","id":"builtin-073"},{"q":"战国七雄","a":"齐、楚、燕、韩、赵、魏、秦","cat":"历史集合","relation":"组成关系","id":"builtin-074"},{"q":"建安七子","a":"孔融、陈琳、王粲、徐干、阮瑀、应玚、刘桢","cat":"文学集合","relation":"组成关系","id":"builtin-075"},{"q":"竹林七贤","a":"嵇康、阮籍、山涛、向秀、刘伶、王戎、阮咸","cat":"文学集合","relation":"组成关系","id":"builtin-076"},{"q":"七大洲","a":"亚洲、非洲、北美洲、南美洲、南极洲、欧洲、大洋洲","cat":"地理集合","relation":"组成关系","id":"builtin-077"},{"q":"唐宋八大家","a":"韩愈、柳宗元、欧阳修、苏洵、苏轼、苏辙、王安石、曾巩","cat":"文学集合","relation":"组成关系","id":"builtin-078"},{"q":"八大菜系","a":"鲁、川、粤、苏、闽、浙、湘、徽","cat":"传统文化","relation":"组成关系","id":"builtin-079"},{"q":"八仙","a":"铁拐李、汉钟离、张果老、吕洞宾、何仙姑、蓝采和、韩湘子、曹国舅","cat":"传统文化","relation":"组成关系","id":"builtin-080"},{"q":"九州","a":"冀、兖、青、徐、扬、荆、豫、梁、雍（《尚书·禹贡》）","cat":"九数系列","relation":"组成关系","id":"builtin-081"},{"q":"十二地支","a":"子、丑、寅、卯、辰、巳、午、未、申、酉、戌、亥","cat":"十二数系列","relation":"组成关系","id":"builtin-082"},{"q":"二十八宿","a":"东方青龙：角亢氐房心尾箕；北方玄武：斗牛女虚危室壁；西方白虎：奎娄胃昴毕觜参；南方朱雀：井鬼柳星张翼轸","cat":"传统文化","relation":"组成关系","id":"builtin-083"},{"q":"桑梓","a":"故乡","cat":"常见代称","relation":"比喻象征","id":"builtin-084"},{"q":"桃李","a":"学生、门生","cat":"常见代称","relation":"比喻象征","id":"builtin-085"},{"q":"杏坛","a":"教育界、讲学之所","cat":"常见代称","relation":"比喻象征","id":"builtin-086"},{"q":"杏林","a":"医学界","cat":"常见代称","relation":"比喻象征","id":"builtin-087"},{"q":"梨园","a":"戏曲界","cat":"常见代称","relation":"比喻象征","id":"builtin-088"},{"q":"社稷","a":"国家","cat":"常见代称","relation":"比喻象征","id":"builtin-089"},{"q":"庙堂","a":"朝廷、政府","cat":"常见代称","relation":"比喻象征","id":"builtin-090"},{"q":"黔首","a":"百姓","cat":"常见代称","relation":"比喻象征","id":"builtin-091"},{"q":"汗青","a":"史册、历史","cat":"常见代称","relation":"比喻象征","id":"builtin-092"},{"q":"尺素／鱼雁／鸿雁","a":"书信","cat":"常见代称","relation":"比喻象征","id":"builtin-093"},{"q":"杜康","a":"酒","cat":"常见代称","relation":"比喻象征","id":"builtin-094"},{"q":"金乌","a":"太阳","cat":"常见代称","relation":"比喻象征","id":"builtin-095"},{"q":"玉兔／蟾宫／桂魄","a":"月亮","cat":"常见代称","relation":"比喻象征","id":"builtin-096"},{"q":"红豆","a":"相思","cat":"常见象征","relation":"比喻象征","id":"builtin-097"},{"q":"折柳","a":"送别、惜别","cat":"常见象征","relation":"比喻象征","id":"builtin-098"},{"q":"长亭","a":"送别","cat":"常见象征","relation":"比喻象征","id":"builtin-099"},{"q":"鸿鹄","a":"远大志向","cat":"常见象征","relation":"比喻象征","id":"builtin-100"},{"q":"手足","a":"兄弟","cat":"亲属代称","relation":"比喻象征","id":"builtin-101"},{"q":"椿萱","a":"父母（椿代父、萱代母）","cat":"亲属代称","relation":"比喻象征","id":"builtin-102"},{"q":"萱堂","a":"母亲","cat":"亲属代称","relation":"比喻象征","id":"builtin-103"},{"q":"东床／东坦","a":"女婿","cat":"亲属代称","relation":"比喻象征","id":"builtin-104"},{"q":"泰山","a":"岳父","cat":"亲属代称","relation":"比喻象征","id":"builtin-105"},{"q":"秦晋","a":"婚姻、姻亲关系","cat":"亲属代称","relation":"比喻象征","id":"builtin-106"},{"q":"棠棣","a":"兄弟","cat":"亲属代称","relation":"比喻象征","id":"builtin-107"},{"q":"连理／比翼","a":"夫妻、恩爱伴侣","cat":"亲属代称","relation":"比喻象征","id":"builtin-108"},{"q":"襁褓","a":"未满周岁的婴儿","cat":"年龄称谓","relation":"称谓对应","id":"builtin-109"},{"q":"孩提","a":"二三岁的儿童（泛指幼儿）","cat":"年龄称谓","relation":"称谓对应","id":"builtin-110"},{"q":"垂髫","a":"儿童","cat":"年龄称谓","relation":"称谓对应","id":"builtin-111"},{"q":"总角","a":"童年、少年儿童","cat":"年龄称谓","relation":"称谓对应","id":"builtin-112"},{"q":"豆蔻年华","a":"女子十三四岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-113"},{"q":"及笄","a":"女子十五岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-114"},{"q":"弱冠","a":"男子二十岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-115"},{"q":"而立","a":"三十岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-116"},{"q":"不惑","a":"四十岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-117"},{"q":"知天命","a":"五十岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-118"},{"q":"花甲／耳顺","a":"六十岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-119"},{"q":"古稀","a":"七十岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-120"},{"q":"耄耋","a":"八九十岁（泛指高龄老人）","cat":"年龄称谓","relation":"称谓对应","id":"builtin-121"},{"q":"期颐","a":"一百岁","cat":"年龄称谓","relation":"称谓对应","id":"builtin-122"},{"q":"总角／垂髫","a":"小孩、儿童","cat":"动物相关","relation":"比喻象征","id":"builtin-123"},{"q":"伛偻／黄发／花甲／耄耋","a":"老人","cat":"动物相关","relation":"比喻象征","id":"builtin-124"},{"q":"蚍蜉","a":"自不量力的人","cat":"动物相关","relation":"比喻象征","id":"builtin-125"},{"q":"仙鹤","a":"长寿","cat":"动物相关","relation":"比喻象征","id":"builtin-126"},{"q":"蝙蝠","a":"福气、福运","cat":"动物相关","relation":"比喻象征","id":"builtin-127"},{"q":"画眉","a":"自由","cat":"动物相关","relation":"比喻象征","id":"builtin-128"},{"q":"天鹅","a":"优雅","cat":"动物相关","relation":"比喻象征","id":"builtin-129"},{"q":"鸳鸯","a":"爱情","cat":"动物相关","relation":"比喻象征","id":"builtin-130"},{"q":"豺狼","a":"凶残","cat":"动物相关","relation":"比喻象征","id":"builtin-131"},{"q":"蜜蜂","a":"勤劳","cat":"动物相关","relation":"比喻象征","id":"builtin-132"},{"q":"鸽子","a":"和平","cat":"动物相关","relation":"比喻象征","id":"builtin-133"},{"q":"青鸟","a":"信使","cat":"动物相关","relation":"比喻象征","id":"builtin-134"},{"q":"黄牛","a":"埋头苦干","cat":"动物相关","relation":"比喻象征","id":"builtin-135"},{"q":"麒麟／龙／凤凰／貔貅","a":"祥瑞、吉祥","cat":"动物相关","relation":"比喻象征","id":"builtin-136"},{"q":"松树","a":"长寿","cat":"植物相关","relation":"比喻象征","id":"builtin-137"},{"q":"月季花","a":"希望、光荣","cat":"植物相关","relation":"比喻象征","id":"builtin-138"},{"q":"折柳","a":"惜别","cat":"植物相关","relation":"比喻象征","id":"builtin-139"},{"q":"红豆","a":"相思","cat":"植物相关","relation":"比喻象征","id":"builtin-140"},{"q":"牡丹","a":"富贵","cat":"植物相关","relation":"比喻象征","id":"builtin-141"},{"q":"玫瑰","a":"爱情","cat":"植物相关","relation":"比喻象征","id":"builtin-142"},{"q":"梅／兰／竹／菊／莲花","a":"高洁、纯洁","cat":"植物相关","relation":"比喻象征","id":"builtin-143"},{"q":"芭蕉","a":"孤独、疲惫、凄冷","cat":"植物相关","relation":"比喻象征","id":"builtin-144"},{"q":"乳牙","a":"稚嫩","cat":"身体部位相关","relation":"比喻象征","id":"builtin-145"},{"q":"膝下","a":"幼年、子女幼时","cat":"身体部位相关","relation":"比喻象征","id":"builtin-146"},{"q":"七寸","a":"要害","cat":"身体部位相关","relation":"比喻象征","id":"builtin-147"},{"q":"骨肉","a":"亲人","cat":"身体部位相关","relation":"比喻象征","id":"builtin-148"},{"q":"胃口","a":"兴趣","cat":"身体部位相关","relation":"比喻象征","id":"builtin-149"},{"q":"首脑","a":"领袖、核心人物","cat":"身体部位相关","relation":"比喻象征","id":"builtin-150"},{"q":"手足","a":"兄弟","cat":"身体部位相关","relation":"比喻象征","id":"builtin-151"},{"q":"眉目","a":"头绪","cat":"身体部位相关","relation":"比喻象征","id":"builtin-152"},{"q":"咽喉","a":"要塞","cat":"身体部位相关","relation":"比喻象征","id":"builtin-153"},{"q":"白发","a":"沧桑","cat":"身体部位相关","relation":"比喻象征","id":"builtin-154"},{"q":"手腕","a":"手段","cat":"身体部位相关","relation":"比喻象征","id":"builtin-155"},{"q":"肝胆","a":"勇气","cat":"身体部位相关","relation":"比喻象征","id":"builtin-156"},{"q":"心脏","a":"中心、要害","cat":"身体部位相关","relation":"比喻象征","id":"builtin-157"},{"q":"臂膀","a":"得力助手","cat":"身体部位相关","relation":"比喻象征","id":"builtin-158"},{"q":"心腹","a":"亲信、信任的人","cat":"身体部位相关","relation":"比喻象征","id":"builtin-159"},{"q":"耳目","a":"刺探消息的人","cat":"身体部位相关","relation":"比喻象征","id":"builtin-160"},{"q":"白色","a":"纯净、无杂质、纯洁","cat":"颜色相关","relation":"比喻象征","id":"builtin-161"},{"q":"蓝色","a":"忧郁","cat":"颜色相关","relation":"比喻象征","id":"builtin-162"},{"q":"绿色","a":"环保、自然","cat":"颜色相关","relation":"比喻象征","id":"builtin-163"},{"q":"紫色","a":"高雅","cat":"颜色相关","relation":"比喻象征","id":"builtin-164"},{"q":"黑色","a":"严肃、严肃庄重","cat":"颜色相关","relation":"比喻象征","id":"builtin-165"},{"q":"红色","a":"热情、喜庆、革命","cat":"颜色相关","relation":"比喻象征","id":"builtin-166"},{"q":"印把子","a":"政权、权力","cat":"俗语相关","relation":"俗语借代","id":"builtin-167"},{"q":"马大哈","a":"粗心的人","cat":"俗语相关","relation":"俗语借代","id":"builtin-168"},{"q":"台柱子","a":"集体的骨干","cat":"俗语相关","relation":"俗语借代","id":"builtin-169"},{"q":"侃大山","a":"漫无目的地聊天","cat":"俗语相关","relation":"俗语借代","id":"builtin-170"},{"q":"拉清单","a":"算总账、清算彼此恩怨","cat":"俗语相关","relation":"俗语借代","id":"builtin-171"},{"q":"耍花枪","a":"耍小聪明的欺骗行为","cat":"俗语相关","relation":"俗语借代","id":"builtin-172"},{"q":"上台阶","a":"取得更新更大的成就","cat":"俗语相关","relation":"俗语借代","id":"builtin-173"},{"q":"跑龙套","a":"做无关紧要的事；扮演无关紧要的角色","cat":"俗语相关","relation":"俗语借代","id":"builtin-174"},{"q":"三脚猫","a":"技艺不精","cat":"俗语相关","relation":"俗语借代","id":"builtin-175"},{"q":"捞稻草","a":"绝望中作徒劳无益的挣扎","cat":"俗语相关","relation":"俗语借代","id":"builtin-176"},{"q":"传声筒","a":"没有主见的人","cat":"俗语相关","relation":"俗语借代","id":"builtin-177"},{"q":"应声虫","a":"随声附和的人","cat":"俗语相关","relation":"俗语借代","id":"builtin-178"},{"q":"及时雨","a":"在关键时刻解救危难","cat":"俗语相关","relation":"俗语借代","id":"builtin-179"},{"q":"冷板凳","a":"清苦、冷落的职务或位置","cat":"俗语相关","relation":"俗语借代","id":"builtin-180"},{"q":"纸老虎","a":"外强中干、貌似强大实则虚弱","cat":"俗语相关","relation":"俗语借代","id":"builtin-181"},{"q":"笑面虎","a":"外表和善而内心凶狠","cat":"俗语相关","relation":"俗语借代","id":"builtin-182"},{"q":"缇萦救父","a":"孝","cat":"典故相关","relation":"典故象征","id":"builtin-183"},{"q":"城下之盟","a":"屈辱","cat":"典故相关","relation":"典故象征","id":"builtin-184"},{"q":"毛遂自荐","a":"自荐、自告奋勇","cat":"典故相关","relation":"典故象征","id":"builtin-185"},{"q":"季札还愿／尾生抱柱","a":"诚信","cat":"典故相关","relation":"典故象征","id":"builtin-186"},{"q":"孔融让梨","a":"礼让","cat":"典故相关","relation":"典故象征","id":"builtin-187"},{"q":"火","a":"热情","cat":"其他相关","relation":"比喻象征","id":"builtin-188"},{"q":"土","a":"敦厚","cat":"其他相关","relation":"比喻象征","id":"builtin-189"},{"q":"箭","a":"光明","cat":"其他相关","relation":"比喻象征","id":"builtin-190"},{"q":"长亭","a":"送别","cat":"其他相关","relation":"比喻象征","id":"builtin-191"},{"q":"浮屠","a":"佛塔","cat":"其他相关","relation":"比喻象征","id":"builtin-192"},{"q":"汗青","a":"史册、历史","cat":"其他相关","relation":"比喻象征","id":"builtin-193"},{"q":"杏林","a":"医生、医学界","cat":"其他相关","relation":"比喻象征","id":"builtin-194"},{"q":"杏坛／蜡烛","a":"老师、教育工作者","cat":"其他相关","relation":"比喻象征","id":"builtin-195"},{"q":"梨园","a":"戏曲、戏曲界","cat":"其他相关","relation":"比喻象征","id":"builtin-196"},{"q":"桃李","a":"学生","cat":"其他相关","relation":"比喻象征","id":"builtin-197"},{"q":"春蚕","a":"奉献的人","cat":"其他相关","relation":"比喻象征","id":"builtin-198"},{"q":"丝竹","a":"音乐","cat":"其他相关","relation":"比喻象征","id":"builtin-199"},{"q":"松柏","a":"坚强不屈","cat":"其他相关","relation":"比喻象征","id":"builtin-200"},{"q":"桑梓","a":"家乡","cat":"其他相关","relation":"比喻象征","id":"builtin-201"},{"q":"桑麻","a":"农事","cat":"其他相关","relation":"比喻象征","id":"builtin-202"},{"q":"社稷","a":"国家","cat":"其他相关","relation":"比喻象征","id":"builtin-203"},{"q":"庙堂","a":"朝廷","cat":"其他相关","relation":"比喻象征","id":"builtin-204"},{"q":"狼烟","a":"入侵、战事","cat":"其他相关","relation":"比喻象征","id":"builtin-205"},{"q":"三尺","a":"法律","cat":"其他相关","relation":"比喻象征","id":"builtin-206"},{"q":"天平／明镜","a":"公正","cat":"其他相关","relation":"比喻象征","id":"builtin-207"},{"q":"桎梏","a":"束缚","cat":"其他相关","relation":"比喻象征","id":"builtin-208"},{"q":"荆棘","a":"困难","cat":"其他相关","relation":"比喻象征","id":"builtin-209"},{"q":"干戈／烽烟","a":"战争","cat":"其他相关","relation":"比喻象征","id":"builtin-210"},{"q":"鸿雁／笺礼","a":"书信","cat":"其他相关","relation":"比喻象征","id":"builtin-211"},{"q":"宁波","a":"甬上","cat":"城市别称","relation":"全同关系","id":"builtin-212"},{"q":"哈尔滨","a":"冰城","cat":"城市别称","relation":"全同关系","id":"builtin-213"},{"q":"拉萨","a":"日光城","cat":"城市别称","relation":"全同关系","id":"builtin-214"},{"q":"漠河","a":"不夜城","cat":"城市别称","relation":"全同关系","id":"builtin-215"},{"q":"合肥","a":"庐州","cat":"城市别称","relation":"全同关系","id":"builtin-216"},{"q":"杭州","a":"临安、武林、钱塘","cat":"城市别称","relation":"全同关系","id":"builtin-217"},{"q":"景德镇","a":"瓷都","cat":"城市别称","relation":"全同关系","id":"builtin-218"},{"q":"扬州","a":"广陵","cat":"城市别称","relation":"全同关系","id":"builtin-219"},{"q":"包头","a":"鹿城","cat":"城市别称","relation":"全同关系","id":"builtin-220"},{"q":"丹东","a":"凤城","cat":"城市别称","relation":"全同关系","id":"builtin-221"},{"q":"广州","a":"羊城","cat":"城市别称","relation":"全同关系","id":"builtin-222"},{"q":"太原","a":"龙城","cat":"城市别称","relation":"全同关系","id":"builtin-223"},{"q":"济南","a":"泉城","cat":"城市别称","relation":"全同关系","id":"builtin-224"},{"q":"武汉","a":"江城","cat":"城市别称","relation":"全同关系","id":"builtin-225"},{"q":"长沙","a":"星城","cat":"城市别称","relation":"全同关系","id":"builtin-226"},{"q":"昆明","a":"春城","cat":"城市别称","relation":"全同关系","id":"builtin-227"},{"q":"泸州","a":"酒城","cat":"城市别称","relation":"全同关系","id":"builtin-228"},{"q":"南宁","a":"绿城","cat":"城市别称","relation":"全同关系","id":"builtin-229"},{"q":"福州","a":"榕城","cat":"城市别称","relation":"全同关系","id":"builtin-230"},{"q":"石家庄","a":"常山","cat":"城市别称","relation":"全同关系","id":"builtin-231"},{"q":"西安","a":"长安、镐京","cat":"城市别称","relation":"全同关系","id":"builtin-232"},{"q":"沈阳","a":"盛京、奉天","cat":"城市别称","relation":"全同关系","id":"builtin-233"},{"q":"苏州","a":"姑苏、水城、园林之城","cat":"城市别称","relation":"全同关系","id":"builtin-234"},{"q":"上海","a":"申城、东方巴黎","cat":"城市别称","relation":"全同关系","id":"builtin-235"},{"q":"北京","a":"中都、幽州、北平、大都","cat":"城市别称","relation":"全同关系","id":"builtin-236"},{"q":"南京","a":"建康、金陵、江宁","cat":"城市别称","relation":"全同关系","id":"builtin-237"},{"q":"成都","a":"蓉城、锦城、天府之国","cat":"城市别称","relation":"全同关系","id":"builtin-238"},{"q":"父亲","a":"家父、家严、家君、家尊","cat":"人称对应","relation":"称谓对应","id":"builtin-239"},{"q":"母亲","a":"家母、家慈、萱堂","cat":"人称对应","relation":"称谓对应","id":"builtin-240"},{"q":"丈夫","a":"外子、良人、郎君","cat":"人称对应","relation":"称谓对应","id":"builtin-241"},{"q":"妻子","a":"内人、内子、拙荆","cat":"人称对应","relation":"称谓对应","id":"builtin-242"},{"q":"别人的父亲","a":"令尊","cat":"人称对应","relation":"称谓对应","id":"builtin-243"},{"q":"别人的母亲","a":"令堂、令慈","cat":"人称对应","relation":"称谓对应","id":"builtin-244"},{"q":"别人的儿子","a":"令郎","cat":"人称对应","relation":"称谓对应","id":"builtin-245"},{"q":"别人的女儿","a":"令爱、令媛","cat":"人称对应","relation":"称谓对应","id":"builtin-246"},{"q":"爷爷","a":"祖父","cat":"人称对应","relation":"称谓对应","id":"builtin-247"},{"q":"奶奶","a":"祖母","cat":"人称对应","relation":"称谓对应","id":"builtin-248"},{"q":"汤圆","a":"元宵","cat":"食物别名","relation":"全同关系","id":"builtin-249"},{"q":"粽子","a":"角黍","cat":"食物别名","relation":"全同关系","id":"builtin-250"},{"q":"西洋菜","a":"豆瓣菜（常见称呼）","cat":"食物别名","relation":"全同关系","id":"builtin-251"},{"q":"番茄","a":"西红柿","cat":"食物别名","relation":"全同关系","id":"builtin-252"},{"q":"苦瓜","a":"凉瓜","cat":"食物别名","relation":"全同关系","id":"builtin-253"},{"q":"茄子","a":"矮瓜","cat":"食物别名","relation":"全同关系","id":"builtin-254"},{"q":"高笋","a":"茭白","cat":"食物别名","relation":"全同关系","id":"builtin-255"},{"q":"芸豆","a":"四季豆","cat":"食物别名","relation":"全同关系","id":"builtin-256"},{"q":"芝麻","a":"胡麻、油麻","cat":"食物别名","relation":"全同关系","id":"builtin-257"},{"q":"山芋","a":"番薯、甘薯、地瓜","cat":"食物别名","relation":"全同关系","id":"builtin-258"},{"q":"洋芋","a":"土豆、马铃薯","cat":"食物别名","relation":"全同关系","id":"builtin-259"},{"q":"肉桂","a":"平安树（商品名）","cat":"植物别名","relation":"全同关系","id":"builtin-260"},{"q":"银杏","a":"公孙树","cat":"植物别名","relation":"全同关系","id":"builtin-261"},{"q":"杨花","a":"柳絮（常与柳花混称）","cat":"植物别名","relation":"全同关系","id":"builtin-262"},{"q":"水仙","a":"雅蒜","cat":"植物别名","relation":"全同关系","id":"builtin-263"},{"q":"香菜","a":"芫荽","cat":"植物别名","relation":"全同关系","id":"builtin-264"},{"q":"牵牛花","a":"喇叭花","cat":"植物别名","relation":"全同关系","id":"builtin-265"},{"q":"杜鹃花","a":"映山红、山石榴","cat":"植物别名","relation":"全同关系","id":"builtin-266"},{"q":"牡丹","a":"洛阳花、百花王","cat":"植物别名","relation":"全同关系","id":"builtin-267"},{"q":"黄花菜","a":"金针菜、忘忧草","cat":"植物别名","relation":"全同关系","id":"builtin-268"},{"q":"荷花","a":"芙蓉、莲花","cat":"植物别名","relation":"全同关系","id":"builtin-269"},{"q":"纯碱","a":"碳酸钠、苏打","cat":"全同关系","relation":"全同关系","id":"builtin-270"},{"q":"碳酸氢钠","a":"小苏打","cat":"全同关系","relation":"全同关系","id":"builtin-271"},{"q":"刹车","a":"制动","cat":"全同关系","relation":"全同关系","id":"builtin-272"},{"q":"引擎","a":"发动机","cat":"全同关系","relation":"全同关系","id":"builtin-273"},{"q":"分母","a":"分数中除数的别称","cat":"全同关系","relation":"全同关系","id":"builtin-274"},{"q":"分子","a":"分数中被除数的别称","cat":"全同关系","relation":"全同关系","id":"builtin-275"},{"q":"风筝","a":"纸鸢","cat":"全同关系","relation":"全同关系","id":"builtin-276"},{"q":"木偶","a":"傀儡","cat":"全同关系","relation":"全同关系","id":"builtin-277"},{"q":"鸦片","a":"大烟","cat":"全同关系","relation":"全同关系","id":"builtin-278"},{"q":"拷贝","a":"复制","cat":"全同关系","relation":"全同关系","id":"builtin-279"},{"q":"解雇","a":"炒鱿鱼","cat":"全同关系","relation":"全同关系","id":"builtin-280"},{"q":"麦克风","a":"话筒","cat":"全同关系","relation":"全同关系","id":"builtin-281"},{"q":"白粉","a":"海洛因","cat":"全同关系","relation":"全同关系","id":"builtin-282"},{"q":"百分比","a":"百分率","cat":"全同关系","relation":"全同关系","id":"builtin-283"},{"q":"地摊经济","a":"马路经济","cat":"全同关系","relation":"全同关系","id":"builtin-284"},{"q":"无理数","a":"无限不循环小数","cat":"全同关系","relation":"全同关系","id":"builtin-285"},{"q":"太阳","a":"日、阳、金乌、金轮、火轮","cat":"全同关系","relation":"全同关系","id":"builtin-286"},{"q":"月亮","a":"玉轮、婵娟、玉兔、银兔、蟾宫、望舒","cat":"全同关系","relation":"全同关系","id":"builtin-287"},{"q":"生","a":"死","cat":"并列关系","relation":"并列关系","id":"builtin-288"},{"q":"男","a":"女","cat":"并列关系","relation":"并列关系","id":"builtin-289"},{"q":"阴","a":"阳","cat":"并列关系","relation":"并列关系","id":"builtin-290"},{"q":"动","a":"静","cat":"并列关系","relation":"并列关系","id":"builtin-291"},{"q":"曲","a":"直","cat":"并列关系","relation":"并列关系","id":"builtin-292"},{"q":"昼","a":"夜","cat":"并列关系","relation":"并列关系","id":"builtin-293"},{"q":"雌","a":"雄","cat":"并列关系","relation":"并列关系","id":"builtin-294"},{"q":"软实力","a":"硬实力","cat":"并列关系","relation":"并列关系","id":"builtin-295"},{"q":"有","a":"无","cat":"并列关系","relation":"并列关系","id":"builtin-296"},{"q":"开","a":"关","cat":"并列关系","relation":"并列关系","id":"builtin-297"},{"q":"硬件","a":"软件","cat":"并列关系","relation":"并列关系","id":"builtin-298"},{"q":"阴刻","a":"阳刻","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-299"},{"q":"阴离子","a":"阳离子","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-300"},{"q":"杂交","a":"纯种","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-301"},{"q":"实词","a":"虚词","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-302"},{"q":"元音","a":"辅音","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-303"},{"q":"声母","a":"韵母","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-304"},{"q":"有色金属","a":"黑色金属","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-305"},{"q":"主要矛盾","a":"次要矛盾","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-306"},{"q":"实体经济","a":"虚拟经济","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-307"},{"q":"精神文明","a":"物质文明","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-308"},{"q":"急性中毒","a":"慢性中毒","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-309"},{"q":"唯物主义","a":"唯心主义","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-310"},{"q":"有花植物","a":"无花植物","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-311"},{"q":"幸存者","a":"遇难者","cat":"矛盾关系","relation":"矛盾关系","id":"builtin-312"},{"q":"胜","a":"负（另有平局）","cat":"反对关系","relation":"反对关系","id":"builtin-313"},{"q":"呼","a":"吸（另有屏气）","cat":"反对关系","relation":"反对关系","id":"builtin-314"},{"q":"正数","a":"负数（另有零）","cat":"反对关系","relation":"反对关系","id":"builtin-315"},{"q":"活火山","a":"死火山（另有休眠火山）","cat":"反对关系","relation":"反对关系","id":"builtin-316"},{"q":"上弦","a":"下弦（另有新月、满月）","cat":"反对关系","relation":"反对关系","id":"builtin-317"},{"q":"自然科学","a":"社会科学（另有思维科学）","cat":"反对关系","relation":"反对关系","id":"builtin-318"},{"q":"动脉血管","a":"静脉血管（另有毛细血管）","cat":"反对关系","relation":"反对关系","id":"builtin-319"},{"q":"已婚","a":"未婚（另有丧偶、离婚）","cat":"反对关系","relation":"反对关系","id":"builtin-320"},{"q":"胜诉","a":"败诉（另有撤诉、驳回起诉）","cat":"反对关系","relation":"反对关系","id":"builtin-321"},{"q":"有期徒刑","a":"无期徒刑（另有拘役、管制、死刑）","cat":"反对关系","relation":"反对关系","id":"builtin-322"},{"q":"食草动物","a":"食肉动物（另有杂食动物）","cat":"反对关系","relation":"反对关系","id":"builtin-323"},{"q":"寒性食物","a":"热性食物（另有凉性、温性食物）","cat":"反对关系","relation":"反对关系","id":"builtin-324"},{"q":"画家","a":"作家（部分画家也是作家）","cat":"交叉关系","relation":"交叉关系","id":"builtin-325"},{"q":"专家","a":"官员（部分专家担任官员）","cat":"交叉关系","relation":"交叉关系","id":"builtin-326"},{"q":"军人","a":"诗人（部分军人也是诗人）","cat":"交叉关系","relation":"交叉关系","id":"builtin-327"},{"q":"编剧","a":"诗人（部分编剧也是诗人）","cat":"交叉关系","relation":"交叉关系","id":"builtin-328"},{"q":"教授","a":"博士（部分教授拥有博士学位）","cat":"交叉关系","relation":"交叉关系","id":"builtin-329"},{"q":"党员","a":"干部（部分党员是干部）","cat":"交叉关系","relation":"交叉关系","id":"builtin-330"},{"q":"党员","a":"青年（部分党员是青年）","cat":"交叉关系","relation":"交叉关系","id":"builtin-331"},{"q":"唐诗","a":"七律（按朝代与体裁交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-332"},{"q":"川菜","a":"素菜（按菜系与荤素交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-333"},{"q":"敞篷车","a":"跑车（按车型与功能交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-334"},{"q":"酒瓶","a":"玻璃瓶（按用途与材质交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-335"},{"q":"壁画","a":"山水画（按载体与题材交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-336"},{"q":"暴雨","a":"阵雨（按降水量与类型交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-337"},{"q":"影印本","a":"线装本（按版本与装帧交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-338"},{"q":"所得税","a":"地方税（按税种与归属交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-339"},{"q":"观赏花","a":"食用花（按用途交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-340"},{"q":"无机物","a":"化合物（按化学分类交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-341"},{"q":"淡水湖","a":"内陆湖（按湖水性质和位置交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-342"},{"q":"哺乳动物","a":"陆生动物（按类别和栖息地交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-343"},{"q":"铜版版画","a":"平版版画（按材质和类型交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-344"},{"q":"抽样调查","a":"问卷调查（按方法交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-345"},{"q":"立体化战争","a":"数字化战争（按形态交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-346"},{"q":"名著","a":"传记（按评价和体裁交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-347"},{"q":"冷饮","a":"果汁（按温度和品类交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-348"},{"q":"文物","a":"建筑（按属性和类型交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-349"},{"q":"白日梦","a":"理想（按性质交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-350"},{"q":"航天器","a":"交通工具（按功能交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-351"},{"q":"流行","a":"高尚（部分流行的也可高尚）","cat":"交叉关系","relation":"交叉关系","id":"builtin-352"},{"q":"器皿","a":"茶杯（按材质/用途与类别交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-353"},{"q":"中药","a":"植物（按类别交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-354"},{"q":"中草药","a":"野菜（按药用和食用属性交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-355"},{"q":"蔬菜","a":"绿色食品（按类别和认证交叉）","cat":"交叉关系","relation":"交叉关系","id":"builtin-356"},{"q":"拨云","a":"见日","cat":"因果关系","relation":"因果关系","id":"builtin-357"},{"q":"触景","a":"生情","cat":"因果关系","relation":"因果关系","id":"builtin-358"},{"q":"人去","a":"楼空","cat":"因果关系","relation":"因果关系","id":"builtin-359"},{"q":"有备","a":"无患","cat":"因果关系","relation":"因果关系","id":"builtin-360"},{"q":"鸟尽","a":"弓藏","cat":"因果关系","relation":"因果关系","id":"builtin-361"},{"q":"水涨","a":"船高","cat":"因果关系","relation":"因果关系","id":"builtin-362"},{"q":"苦尽","a":"甘来","cat":"因果关系","relation":"因果关系","id":"builtin-363"},{"q":"风吹","a":"草动","cat":"因果关系","relation":"因果关系","id":"builtin-364"},{"q":"水落","a":"石出","cat":"因果关系","relation":"因果关系","id":"builtin-365"},{"q":"天寒","a":"地冻","cat":"因果关系","relation":"因果关系","id":"builtin-366"},{"q":"理屈","a":"词穷","cat":"因果关系","relation":"因果关系","id":"builtin-367"},{"q":"唇亡","a":"齿寒","cat":"因果关系","relation":"因果关系","id":"builtin-368"},{"q":"春暖","a":"花开","cat":"因果关系","relation":"因果关系","id":"builtin-369"},{"q":"路见不平","a":"拔刀相助","cat":"因果关系","relation":"因果关系","id":"builtin-370"},{"q":"前车之覆","a":"后车之鉴","cat":"因果关系","relation":"因果关系","id":"builtin-371"},{"q":"前事不忘","a":"后事之师","cat":"因果关系","relation":"因果关系","id":"builtin-372"},{"q":"一叶障目","a":"不见泰山","cat":"因果关系","relation":"因果关系","id":"builtin-373"},{"q":"城门失火","a":"殃及池鱼","cat":"因果关系","relation":"因果关系","id":"builtin-374"},{"q":"过街老鼠","a":"人人喊打","cat":"因果关系","relation":"因果关系","id":"builtin-375"},{"q":"多行不义","a":"必自毙","cat":"因果关系","relation":"因果关系","id":"builtin-376"},{"q":"鹬蚌相争","a":"渔翁得利","cat":"因果关系","relation":"因果关系","id":"builtin-377"},{"q":"木材","a":"家具","cat":"对应关系","relation":"对应关系","id":"builtin-378"},{"q":"蚕丝","a":"丝绸","cat":"对应关系","relation":"对应关系","id":"builtin-379"},{"q":"纸张","a":"书本","cat":"对应关系","relation":"对应关系","id":"builtin-380"},{"q":"竹子","a":"斗笠","cat":"对应关系","relation":"对应关系","id":"builtin-381"},{"q":"无纺布","a":"口罩","cat":"对应关系","relation":"对应关系","id":"builtin-382"},{"q":"高粱","a":"白酒","cat":"对应关系","relation":"对应关系","id":"builtin-383"},{"q":"粮食","a":"美酒","cat":"对应关系","relation":"对应关系","id":"builtin-384"},{"q":"生铁","a":"钢材","cat":"对应关系","relation":"对应关系","id":"builtin-385"},{"q":"麦芽","a":"啤酒","cat":"对应关系","relation":"对应关系","id":"builtin-386"},{"q":"石膏","a":"豆腐","cat":"对应关系","relation":"对应关系","id":"builtin-387"},{"q":"罂粟","a":"鸦片","cat":"对应关系","relation":"对应关系","id":"builtin-388"},{"q":"可可豆","a":"巧克力","cat":"对应关系","relation":"对应关系","id":"builtin-389"},{"q":"面粉","a":"馒头","cat":"对应关系","relation":"对应关系","id":"builtin-390"},{"q":"棉花","a":"布","cat":"对应关系","relation":"对应关系","id":"builtin-391"},{"q":"糯米","a":"糍粑","cat":"对应关系","relation":"对应关系","id":"builtin-392"},{"q":"沙粒","a":"珍珠","cat":"对应关系","relation":"对应关系","id":"builtin-393"},{"q":"小麦","a":"面粉（再制馒头）","cat":"对应关系","relation":"对应关系","id":"builtin-394"},{"q":"盐","a":"咸（必然属性）","cat":"对应关系","relation":"对应关系","id":"builtin-395"},{"q":"人性","a":"良知（必然属性）","cat":"对应关系","relation":"对应关系","id":"builtin-396"},{"q":"和谐","a":"正义（必然属性）","cat":"对应关系","relation":"对应关系","id":"builtin-397"},{"q":"鲜花","a":"红色（或然属性）","cat":"对应关系","relation":"对应关系","id":"builtin-398"},{"q":"计算机","a":"计算（主要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-399"},{"q":"沙漏","a":"计时（主要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-400"},{"q":"时钟","a":"显示时间（主要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-401"},{"q":"发票","a":"报销（主要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-402"},{"q":"疫苗","a":"抗疫（主要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-403"},{"q":"法律","a":"约束（主要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-404"},{"q":"手机","a":"娱乐（次要功能）","cat":"对应关系","relation":"对应关系","id":"builtin-405"},{"q":"种树","a":"绿化（方式→目的）","cat":"对应关系","relation":"对应关系","id":"builtin-406"},{"q":"掩耳","a":"盗铃（方式→目的）","cat":"对应关系","relation":"对应关系","id":"builtin-407"},{"q":"运动","a":"健康（方式→目的）","cat":"对应关系","relation":"对应关系","id":"builtin-408"},{"q":"破旧","a":"立新（方式→目的）","cat":"对应关系","relation":"对应关系","id":"builtin-409"},{"q":"沸腾","a":"达到沸点（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-410"},{"q":"生命","a":"氧气（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-411"},{"q":"燃烧","a":"氧气（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-412"},{"q":"跑步","a":"移动（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-413"},{"q":"反应","a":"刺激（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-414"},{"q":"声音产生","a":"振动（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-415"},{"q":"漂流","a":"浮力（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-416"},{"q":"出国","a":"护照、签证（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-417"},{"q":"乘高铁","a":"身份证、车票（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-418"},{"q":"社会和谐","a":"家庭和谐（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-419"},{"q":"国家安全","a":"粮食安全（必要条件）","cat":"对应关系","relation":"对应关系","id":"builtin-420"},{"q":"质量","a":"千克（kg）","cat":"物理量单位","relation":"单位对应","id":"builtin-421"},{"q":"温度","a":"摄氏度（℃）","cat":"物理量单位","relation":"单位对应","id":"builtin-422"},{"q":"速度","a":"米/秒（m/s）","cat":"物理量单位","relation":"单位对应","id":"builtin-423"},{"q":"密度","a":"千克/立方米（kg/m³）","cat":"物理量单位","relation":"单位对应","id":"builtin-424"},{"q":"力","a":"牛顿（N）","cat":"物理量单位","relation":"单位对应","id":"builtin-425"},{"q":"压强","a":"帕斯卡（Pa）","cat":"物理量单位","relation":"单位对应","id":"builtin-426"},{"q":"功／热量","a":"焦耳（J）","cat":"物理量单位","relation":"单位对应","id":"builtin-427"},{"q":"功率","a":"瓦特（W）","cat":"物理量单位","relation":"单位对应","id":"builtin-428"},{"q":"电流","a":"安培（A）","cat":"物理量单位","relation":"单位对应","id":"builtin-429"},{"q":"电压","a":"伏特（V）","cat":"物理量单位","relation":"单位对应","id":"builtin-430"},{"q":"电阻","a":"欧姆（Ω）","cat":"物理量单位","relation":"单位对应","id":"builtin-431"},{"q":"电荷","a":"库仑（C）","cat":"物理量单位","relation":"单位对应","id":"builtin-432"},{"q":"电容","a":"法拉（F）","cat":"物理量单位","relation":"单位对应","id":"builtin-433"},{"q":"频率","a":"赫兹（Hz）","cat":"物理量单位","relation":"单位对应","id":"builtin-434"}];
+
+const STORAGE_KEY = "gongkao_cards_v4";
+const WEAK_KEY = "gongkao_weak_v4";
+const BEST_STREAK_KEY = "gongkao_best_streak_v4";
+const BEST_TIMED_KEY = "gongkao_best_timed_v4";
+
+let cards = [];
+try {
+  const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+  cards = Array.isArray(saved) ? saved : [...BUILTIN_CARDS];
+} catch(e) { cards = [...BUILTIN_CARDS]; }
+
+if (!localStorage.getItem(STORAGE_KEY)) {
+  // 尽量保留 V3/V2 中用户自己添加的卡片
+  let legacy = [];
+  for (const key of ["gongkao_cards_v3","gongkao_cards_v2","gongkao_cards"]) {
+    try {
+      const x = JSON.parse(localStorage.getItem(key) || "[]");
+      if (Array.isArray(x) && x.length) { legacy = x; break; }
+    } catch(e) {}
+  }
+  for (const c of legacy) {
+    if (c && c.q && c.a && !cards.some(x => x.q === c.q && x.a === c.a)) cards.push(c);
+  }
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+}
+
+let weakIds = new Set();
+try {
+  const savedWeak = JSON.parse(localStorage.getItem(WEAK_KEY) || "null");
+  if (Array.isArray(savedWeak)) weakIds = new Set(savedWeak);
+  else {
+    for (const key of ["gongkao_weak_v3","gongkao_weak_v2","gongkao_weak"]) {
+      try {
+        const x = JSON.parse(localStorage.getItem(key) || "[]");
+        if (Array.isArray(x) && x.length) { weakIds = new Set(x); break; }
+      } catch(e) {}
+    }
+  }
+} catch(e) {}
+
+let currentDeck = [];
+let index = 0;
+let flipped = false;
+let currentDirection = "forward";
+
+let roundDone = 0, roundKnown = 0, roundWeak = 0;
+let currentStreak = 0, maxStreak = 0;
+let bestStreak = Number(localStorage.getItem(BEST_STREAK_KEY) || 0);
+let bestTimed = Number(localStorage.getItem(BEST_TIMED_KEY) || 0);
+
+let challengeActive = false;
+let timerId = null;
+let timeLeft = 0;
+let timeTotal = 0;
+
+const $ = id => document.getElementById(id);
+const flashcard = $("flashcard");
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+}
+function save(){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(cards));
+  localStorage.setItem(WEAK_KEY, JSON.stringify([...weakIds]));
+}
+function uniqueSorted(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN")); }
+
+function buildFilters(){
+  const catNow = $("categoryFilter").value;
+  const relNow = $("relationFilter").value;
+  const cats = uniqueSorted(cards.map(c=>c.cat || "未分类"));
+  const rels = uniqueSorted(cards.map(c=>c.relation || "未标注关系"));
+
+  $("categoryFilter").innerHTML = '<option value="全部">全部分类</option>' +
+    cats.map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("");
+  $("relationFilter").innerHTML = '<option value="全部">全部关系</option>' +
+    rels.map(x=>`<option value="${escapeHtml(x)}">${escapeHtml(x)}</option>`).join("");
+
+  if ([...$("categoryFilter").options].some(o=>o.value===catNow)) $("categoryFilter").value=catNow;
+  if ([...$("relationFilter").options].some(o=>o.value===relNow)) $("relationFilter").value=relNow;
+}
+
+function getFilteredDeck(){
+  const cat = $("categoryFilter").value;
+  const rel = $("relationFilter").value;
+  const scope = $("scopeSelect").value;
+  return cards.filter(c =>
+    (cat==="全部" || (c.cat || "未分类")===cat) &&
+    (rel==="全部" || (c.relation || "未标注关系")===rel) &&
+    (scope==="all" || weakIds.has(c.id))
+  );
+}
+
+function rebuildDeck(resetIndex=true){
+  currentDeck = getFilteredDeck();
+  if (resetIndex) index = 0;
+  if (index >= currentDeck.length) index = 0;
+  chooseDirection();
+  render();
+}
+
+function chooseDirection(){
+  const d = $("directionSelect").value;
+  currentDirection = d === "mixed" ? (Math.random()<0.5 ? "forward" : "reverse") : d;
+}
+
+function cardSides(c){
+  if (currentDirection === "reverse") {
+    return {front:c.a, back:c.q, label:"反向：含义 → 词条"};
+  }
+  return {front:c.q, back:c.a, label:"正向：词条 → 含义"};
+}
+
+function updateChallengeUI(){
+  const mode = $("gameMode").value;
+  $("timeField").style.display = mode==="timed" ? "block" : "none";
+  $("streakField").style.display = mode==="streak" ? "block" : "none";
+  $("startBtn").style.display = mode==="free" ? "none" : "block";
+
+  if (mode==="free") {
+    $("challengeHelp").textContent = "自由复习：按自己的节奏刷题，错题会自动加入“只刷错题”。";
+  } else if (mode==="timed") {
+    $("challengeHelp").textContent = challengeActive ? "计时进行中：尽可能多地答对。" : "计时闯关：在限定时间内尽可能多地答对。";
+  } else {
+    $("challengeHelp").textContent = challengeActive ? "连胜进行中：答错会把当前连胜清零。" : "连胜闯关：连续答对达到目标即通关，答错连胜清零。";
+  }
+  $("bestText").textContent = `最佳连胜 ${bestStreak} · 计时最高 ${bestTimed}`;
+}
+
+function renderStats(){
+  $("totalNum").textContent = currentDeck.length;
+  $("doneNum").textContent = roundDone;
+  $("knownNum").textContent = roundKnown;
+  $("weakNum").textContent = roundWeak;
+  $("streakNum").textContent = currentStreak;
+
+  const mode = $("gameMode").value;
+  if (mode==="timed") {
+    $("challengeNum").textContent = challengeActive ? `${timeLeft}s` : `${$("timeSelect").value}s`;
+    $("challengeLabel").textContent = "剩余时间";
+  } else if (mode==="streak") {
+    $("challengeNum").textContent = `${currentStreak}/${$("streakTarget").value}`;
+    $("challengeLabel").textContent = "连胜进度";
+  } else {
+    const acc = roundDone ? Math.round(roundKnown/roundDone*100) : 0;
+    $("challengeNum").textContent = `${acc}%`;
+    $("challengeLabel").textContent = "本轮正确率";
+  }
+
+  let pct = 0;
+  if (mode==="timed" && challengeActive && timeTotal) pct = ((timeTotal-timeLeft)/timeTotal)*100;
+  else if (mode==="streak") pct = Math.min(100, currentStreak/Number($("streakTarget").value)*100);
+  else pct = currentDeck.length ? Math.min(100, roundDone/currentDeck.length*100) : 0;
+  $("progress").style.width = pct + "%";
+}
+
+function render(){
+  updateChallengeUI();
+  renderStats();
+
+  if (!currentDeck.length) {
+    $("frontText").textContent = "暂无卡片";
+    $("backText").textContent = "请调整分类、关系或错题筛选";
+    $("frontCategory").textContent = "空";
+    $("backCategory").textContent = "空";
+    $("frontIndex").textContent = "0 / 0";
+    $("backIndex").textContent = "0 / 0";
+    $("frontDirection").textContent = "—";
+    $("backDirection").textContent = "—";
+    $("relationText").textContent = "关系：—";
+    $("frontHint").textContent = "当前筛选条件下没有题目";
+    flipped=false; flashcard.classList.remove("flipped");
+    renderList();
+    return;
+  }
+
+  const c = currentDeck[index];
+  const s = cardSides(c);
+  $("frontText").textContent = s.front;
+  $("backText").textContent = s.back;
+  $("frontCategory").textContent = c.cat || "未分类";
+  $("backCategory").textContent = c.cat || "未分类";
+  $("frontIndex").textContent = `${index+1} / ${currentDeck.length}`;
+  $("backIndex").textContent = `${index+1} / ${currentDeck.length}`;
+  $("frontDirection").textContent = s.label;
+  $("backDirection").textContent = currentDirection==="reverse" ? "答案：词条" : "答案：含义";
+  $("relationText").textContent = "关系：" + (c.relation || "未标注关系");
+  $("frontHint").textContent = weakIds.has(c.id)
+    ? "错题卡 · 先回忆再翻面"
+    : "先在脑中回忆答案，再点击翻面";
+
+  flipped=false;
+  flashcard.classList.remove("flipped");
+  $("flipBtn").textContent = "翻面看答案";
+
+  if (currentStreak >= 3) {
+    $("streakBanner").classList.add("show");
+    $("streakBanner").textContent = `🔥 ${currentStreak} 连胜！继续保持`;
+  } else {
+    $("streakBanner").classList.remove("show");
+  }
+  renderList();
+}
+
+function flip(){
+  if (!currentDeck.length) return;
+  flipped = !flipped;
+  flashcard.classList.toggle("flipped", flipped);
+  $("flipBtn").textContent = flipped ? "返回题面" : "翻面看答案";
+}
+
+function canAnswer(){
+  const mode = $("gameMode").value;
+  if (mode==="free") return true;
+  if (!challengeActive) {
+    $("challengeHelp").textContent = "请先点击“开始闯关”。";
+    return false;
+  }
+  return true;
+}
+
+function answer(isKnown){
+  if (!currentDeck.length || !canAnswer()) return;
+  const c = currentDeck[index];
+
+  if (isKnown) {
+    weakIds.delete(c.id);
+    roundKnown++;
+    currentStreak++;
+    maxStreak = Math.max(maxStreak,currentStreak);
+    bestStreak = Math.max(bestStreak,currentStreak);
+    localStorage.setItem(BEST_STREAK_KEY,bestStreak);
+  } else {
+    weakIds.add(c.id);
+    roundWeak++;
+    currentStreak = 0;
+  }
+  roundDone++;
+  save();
+
+  const mode = $("gameMode").value;
+  if (mode==="streak" && currentStreak >= Number($("streakTarget").value)) {
+    endChallenge(true);
+    return;
+  }
+
+  index = (index+1) % currentDeck.length;
+  chooseDirection();
+  render();
+}
+
+function shuffleDeck(){
+  for(let i=currentDeck.length-1;i>0;i--){
+    const j=Math.floor(Math.random()*(i+1));
+    [currentDeck[i],currentDeck[j]]=[currentDeck[j],currentDeck[i]];
+  }
+  index=0; chooseDirection(); render();
+}
+
+function resetRound(){
+  stopTimer();
+  challengeActive=false;
+  roundDone=roundKnown=roundWeak=currentStreak=maxStreak=0;
+  index=0; chooseDirection(); render();
+}
+
+function stopTimer(){
+  if (timerId) clearInterval(timerId);
+  timerId=null;
+}
+
+function startChallenge(){
+  if (!currentDeck.length) return;
+  stopTimer();
+  roundDone=roundKnown=roundWeak=currentStreak=maxStreak=0;
+  index=0;
+  shuffleDeck();
+  challengeActive=true;
+
+  const mode = $("gameMode").value;
+  if (mode==="timed") {
+    timeTotal = Number($("timeSelect").value);
+    timeLeft = timeTotal;
+    timerId = setInterval(()=>{
+      timeLeft--;
+      renderStats();
+      if (timeLeft<=0) endChallenge(false);
+    },1000);
+  }
+  render();
+}
+
+function endChallenge(success){
+  const mode = $("gameMode").value;
+  stopTimer();
+  challengeActive=false;
+
+  if (mode==="timed") {
+    bestTimed = Math.max(bestTimed, roundKnown);
+    localStorage.setItem(BEST_TIMED_KEY,bestTimed);
+  }
+  bestStreak = Math.max(bestStreak,maxStreak);
+  localStorage.setItem(BEST_STREAK_KEY,bestStreak);
+
+  $("resultTitle").textContent = mode==="streak"
+    ? (success ? "🎉 连胜闯关成功" : "连胜闯关结束")
+    : "⏱️ 计时闯关结束";
+  $("resultSubtitle").textContent = mode==="streak"
+    ? `目标：${$("streakTarget").value} 连胜`
+    : `时长：${$("timeSelect").value} 秒`;
+  $("resultCorrect").textContent = roundKnown;
+  $("resultWrong").textContent = roundWeak;
+  $("resultMaxStreak").textContent = maxStreak;
+  $("resultAccuracy").textContent = roundDone ? Math.round(roundKnown/roundDone*100)+"%" : "0%";
+  $("resultModal").classList.add("show");
+  render();
+}
+
+function changeTrainingSetting(){
+  if (challengeActive) {
+    stopTimer();
+    challengeActive=false;
+  }
+  roundDone=roundKnown=roundWeak=currentStreak=maxStreak=0;
+  rebuildDeck(true);
+}
+
+function addCard(){
+  const q=$("qInput").value.trim();
+  const a=$("aInput").value.trim();
+  const cat=$("cInput").value.trim() || "未分类";
+  const relation=$("rInput").value.trim() || "自定义关系";
+  if (!q || !a) { alert("请填写正面和背面内容。"); return; }
+  cards.unshift({
+    id:"user-"+Date.now()+"-"+Math.random().toString(36).slice(2,7),
+    q,a,cat,relation
+  });
+  $("qInput").value=""; $("aInput").value="";
+  save(); buildFilters(); rebuildDeck(true);
+}
+
+function deleteCard(id){
+  cards = cards.filter(c=>c.id!==id);
+  weakIds.delete(id);
+  save(); buildFilters(); rebuildDeck(true);
+}
+
+function renderList(){
+  const el=$("cardList");
+  if (!cards.length) { el.innerHTML='<div class="small">还没有卡片</div>'; return; }
+  el.innerHTML = cards.map(c=>`
+    <div class="row">
+      <strong>${escapeHtml(c.q)}</strong>
+      <span class="ans">${escapeHtml(c.a)}</span>
+      <span class="cat">${escapeHtml(c.cat || "未分类")}</span>
+      <span class="rel">${escapeHtml(c.relation || "未标注关系")}</span>
+      <button class="delete" title="删除" onclick="deleteCard('${c.id}')">删除</button>
+    </div>`).join("");
+}
+
+flashcard.addEventListener("click",flip);
+$("flipBtn").addEventListener("click",flip);
+$("knownBtn").addEventListener("click",()=>answer(true));
+$("weakBtn").addEventListener("click",()=>answer(false));
+$("shuffleBtn").addEventListener("click",shuffleDeck);
+$("resetBtn").addEventListener("click",resetRound);
+$("startBtn").addEventListener("click",startChallenge);
+$("addBtn").addEventListener("click",addCard);
+
+for (const id of ["categoryFilter","relationFilter","scopeSelect","directionSelect","gameMode","timeSelect","streakTarget"]) {
+  $(id).addEventListener("change",changeTrainingSetting);
+}
+
+$("closeModalBtn").addEventListener("click",()=>$("resultModal").classList.remove("show"));
+$("againBtn").addEventListener("click",()=>{
+  $("resultModal").classList.remove("show");
+  startChallenge();
+});
+$("resultModal").addEventListener("click",e=>{
+  if(e.target===$("resultModal")) $("resultModal").classList.remove("show");
+});
+
+document.addEventListener("keydown",e=>{
+  if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName)) return;
+  if(e.code==="Space"){e.preventDefault();flip();}
+  if(e.key==="ArrowLeft") answer(false);
+  if(e.key==="ArrowRight") answer(true);
+});
+
+buildFilters();
+rebuildDeck(true);
+</script>
+</body>
+</html>
