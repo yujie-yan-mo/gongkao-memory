@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>考公类比推理 · 记忆训练器 V5 云同步版</title>
+<title>考公类比推理 · 记忆训练器 V5.1 断点续学版</title>
 <style>
 :root{
   --bg:#f5f7fb; --card:#fff; --text:#182033; --muted:#6c7485; --line:#e5e9f0;
@@ -159,7 +159,7 @@ select:focus,input:focus{border-color:#9cafef;box-shadow:0 0 0 3px var(--primary
 <div class="app">
   <div class="topbar">
     <div class="brand">
-      <h1>考公类比推理 · 记忆训练器 V5 云同步版</h1>
+      <h1>考公类比推理 · 记忆训练器 V5.1 断点续学版</h1>
       <p>434 张题库 · 双向记忆 · 关系专项 · 计时挑战 · 连胜闯关 · Supabase 云同步</p>
     </div>
     <div class="actions">
@@ -324,6 +324,7 @@ const STORAGE_KEY = "gongkao_cards_v5";
 const WEAK_KEY = "gongkao_weak_v5";
 const BEST_STREAK_KEY = "gongkao_best_streak_v5";
 const BEST_TIMED_KEY = "gongkao_best_timed_v5";
+const SESSION_STATE_KEY = "gongkao_session_state_v51";
 const SUPABASE_URL = "https://uvtshjywxfjlcitixskz.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_nCWJQapJ3vywjyuv1D9ZbQ_hvK0kuvs";
 const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -334,6 +335,8 @@ let progressMap = {};
 let lifetimeCorrect = 0;
 let lifetimeWrong = 0;
 let cloudBusy = false;
+let pendingResumeCardId = null;
+let sessionStateLoaded = false;
 
 let cards = [];
 try {
@@ -479,7 +482,7 @@ async function loadCloudData(force=false){
         .select("card_id,is_weak,correct_count,wrong_count")
         .eq("user_id", currentUser.id),
       supabaseClient.from("user_stats")
-        .select("best_streak,best_timed,total_correct,total_wrong")
+        .select("best_streak,best_timed,total_correct,total_wrong,last_card_id,last_category,last_relation,last_scope,last_direction,last_game_mode")
         .eq("user_id", currentUser.id)
         .maybeSingle()
     ]);
@@ -518,6 +521,18 @@ async function loadCloudData(force=false){
       lifetimeWrong = Number(statsRes.data.total_wrong || 0);
       localStorage.setItem(BEST_STREAK_KEY, bestStreak);
       localStorage.setItem(BEST_TIMED_KEY, bestTimed);
+
+      // 云端“上次学到哪”优先用于跨设备续学。
+      if (statsRes.data.last_card_id) {
+        applySessionSettings({
+          cardId: statsRes.data.last_card_id,
+          category: statsRes.data.last_category || "全部",
+          relation: statsRes.data.last_relation || "全部",
+          scope: statsRes.data.last_scope || "all",
+          direction: statsRes.data.last_direction || "forward",
+          gameMode: statsRes.data.last_game_mode || "free"
+        });
+      }
     }
 
     // 将 V4 的本地错题补进云端，再重新读取一次即可在以后跨设备使用。
@@ -568,6 +583,12 @@ async function syncStats(){
     best_timed: bestTimed,
     total_correct: lifetimeCorrect,
     total_wrong: lifetimeWrong,
+    last_card_id: currentDeck[index]?.id || null,
+    last_category: $("categoryFilter")?.value || "全部",
+    last_relation: $("relationFilter")?.value || "全部",
+    last_scope: $("scopeSelect")?.value || "all",
+    last_direction: $("directionSelect")?.value || "forward",
+    last_game_mode: $("gameMode")?.value || "free",
     updated_at: new Date().toISOString()
   }, { onConflict:"user_id" });
   if (error) {
@@ -627,6 +648,96 @@ async function handleSession(session){
 window.addEventListener("online", () => {
   if (currentUser) loadCloudData(true);
 });
+
+function saveSessionState(){
+  const currentCard = currentDeck[index];
+  const state = {
+    category: $("categoryFilter")?.value || "全部",
+    relation: $("relationFilter")?.value || "全部",
+    scope: $("scopeSelect")?.value || "all",
+    direction: $("directionSelect")?.value || "forward",
+    gameMode: $("gameMode")?.value || "free",
+    timeSelect: $("timeSelect")?.value || "60",
+    streakTarget: $("streakTarget")?.value || "10",
+    cardId: currentCard?.id || null,
+    flipped: !!flipped,
+    roundDone,
+    roundKnown,
+    roundWeak,
+    currentStreak,
+    maxStreak,
+    savedAt: Date.now()
+  };
+  localStorage.setItem(SESSION_STATE_KEY, JSON.stringify(state));
+
+  // 已登录时，也把“上次学到哪”同步到云端，便于换设备续学。
+  if (currentUser && !cloudBusy) {
+    supabaseClient.from("user_stats").upsert({
+      user_id: currentUser.id,
+      best_streak: bestStreak,
+      best_timed: bestTimed,
+      total_correct: lifetimeCorrect,
+      total_wrong: lifetimeWrong,
+      last_card_id: state.cardId,
+      last_category: state.category,
+      last_relation: state.relation,
+      last_scope: state.scope,
+      last_direction: state.direction,
+      last_game_mode: state.gameMode,
+      updated_at: new Date().toISOString()
+    }, { onConflict:"user_id" }).then(({error})=>{
+      if (error) console.warn("Cloud resume state sync failed:", error.message);
+    });
+  }
+}
+
+function loadLocalSessionState(){
+  try {
+    const raw = localStorage.getItem(SESSION_STATE_KEY);
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch(e) {
+    return null;
+  }
+}
+
+function applySessionSettings(state){
+  if (!state) return;
+
+  const setIfExists = (id, value) => {
+    const el = $(id);
+    if (!el || value == null) return;
+    const ok = [...el.options].some(o => o.value === String(value));
+    if (ok) el.value = String(value);
+  };
+
+  setIfExists("categoryFilter", state.category);
+  setIfExists("relationFilter", state.relation);
+  setIfExists("scopeSelect", state.scope);
+  setIfExists("directionSelect", state.direction);
+  setIfExists("gameMode", state.gameMode);
+  setIfExists("timeSelect", state.timeSelect);
+  setIfExists("streakTarget", state.streakTarget);
+
+  roundDone = Number(state.roundDone || 0);
+  roundKnown = Number(state.roundKnown || 0);
+  roundWeak = Number(state.roundWeak || 0);
+  currentStreak = Number(state.currentStreak || 0);
+  maxStreak = Number(state.maxStreak || 0);
+  pendingResumeCardId = state.cardId || null;
+}
+
+function resumeToSavedCard(){
+  if (!pendingResumeCardId || !currentDeck.length) return false;
+  const i = currentDeck.findIndex(c => c.id === pendingResumeCardId);
+  if (i >= 0) {
+    index = i;
+    pendingResumeCardId = null;
+    return true;
+  }
+  return false;
+}
+
 function uniqueSorted(arr){ return [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,"zh-CN")); }
 
 function buildFilters(){
@@ -658,7 +769,7 @@ function getFilteredDeck(){
 function rebuildDeck(resetIndex=true){
   currentDeck = getFilteredDeck();
   if (resetIndex) index = 0;
-  if (index >= currentDeck.length) index = 0;
+  if (!resumeToSavedCard() && index >= currentDeck.length) index = 0;
   chooseDirection();
   render();
 }
@@ -764,6 +875,7 @@ function render(){
     $("streakBanner").classList.remove("show");
   }
   renderList();
+  if (sessionStateLoaded) saveSessionState();
 }
 
 function flip(){
@@ -771,6 +883,7 @@ function flip(){
   flipped = !flipped;
   flashcard.classList.toggle("flipped", flipped);
   $("flipBtn").textContent = flipped ? "返回题面" : "翻面看答案";
+  saveSessionState();
 }
 
 function canAnswer(){
@@ -803,6 +916,7 @@ function answer(isKnown){
   }
   roundDone++;
   save();
+  saveSessionState();
   syncCardProgress(c, isKnown);
   syncStats();
 
@@ -829,6 +943,8 @@ function resetRound(){
   stopTimer();
   challengeActive=false;
   roundDone=roundKnown=roundWeak=currentStreak=maxStreak=0;
+  pendingResumeCardId = null;
+  localStorage.removeItem(SESSION_STATE_KEY);
   index=0; chooseDirection(); render();
 }
 
@@ -891,7 +1007,9 @@ function changeTrainingSetting(){
     challengeActive=false;
   }
   roundDone=roundKnown=roundWeak=currentStreak=maxStreak=0;
+  pendingResumeCardId = null;
   rebuildDeck(true);
+  saveSessionState();
 }
 
 async function addCard(){
@@ -999,6 +1117,9 @@ supabaseClient.auth.onAuthStateChange((_event, session) => {
   await handleSession(data.session);
 })();
 
+window.addEventListener("beforeunload", saveSessionState);
+document.addEventListener("visibilitychange", ()=>{ if(document.hidden) saveSessionState(); });
+
 document.addEventListener("keydown",e=>{
   if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement.tagName)) return;
   if(e.code==="Space"){e.preventDefault();flip();}
@@ -1007,7 +1128,19 @@ document.addEventListener("keydown",e=>{
 });
 
 buildFilters();
+
+// 首次打开时先恢复本机断点；如果随后登录并且云端有断点，会再切到云端断点。
+const localResumeState = loadLocalSessionState();
+applySessionSettings(localResumeState);
+sessionStateLoaded = true;
 rebuildDeck(true);
+
+// 如果上次退出时卡片正处于背面，恢复翻面状态。
+if (localResumeState?.flipped && currentDeck.length) {
+  flipped = true;
+  flashcard.classList.add("flipped");
+  $("flipBtn").textContent = "返回题面";
+}
 </script>
 </body>
 </html>
